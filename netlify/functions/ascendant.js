@@ -92,19 +92,12 @@ exports.handler = async (event) => {
     const tzOffset  = offsetHoursFor(timezone, birthDate, birthTime);
 
     // 3) Astrology API call (if keys present). Otherwise return Test Mode.
-    const user = process.env.ASTROLOGY_API_USER_ID;
-    const key  = process.env.ASTROLOGY_API_KEY;
+    
+// Free version - no API keys needed
+const ascendantSign = "Leo (Demo Rising Sign)";
 
-const hasKeys = Boolean(user && key);
+return cors(200, { ascendantSign });
 
-  if (!hasKeys) {
-  return cors(200, { ascendantSign: "Test Mode (add API keys later)" });
-}
-
-   // Temporary Free API Test — Aztro (no keys needed)
-const apiRes = await fetch("https://aztro.sameerkumar.website/?sign=leo&day=today", {
-  method: "POST"
-});
 
 
     if (!apiRes.ok) {
