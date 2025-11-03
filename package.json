@@ -11,7 +11,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "node-fetch": "^3.3.2",
     "tz-lookup": "^6.1.25"
   }
 }
+"engines": { "node": ">=18" }
