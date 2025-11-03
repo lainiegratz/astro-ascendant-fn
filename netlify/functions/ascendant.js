@@ -95,14 +95,11 @@ exports.handler = async (event) => {
     const user = process.env.ASTROLOGY_API_USER_ID;
     const key  = process.env.ASTROLOGY_API_KEY;
 
-    if (!user || !key) {
-      return cors(200, {
-        ascendantSign: "Test Mode (add API keys later)",
-        ascendantDegree: 0,
-        lat, lon, timezone,
-        debug: { geocoder: provider, matched, tzOffset }
-      });
-    }
+const hasKeys = Boolean(user && key);
+
+  if (!hasKeys) {
+  return cors(200, { ascendantSign: "Test Mode (add API keys later)" });
+}
 
     const apiRes = await fetch("https://json.astrologyapi.com/v2/ascendant", {
       method: "POST",
@@ -128,14 +125,7 @@ exports.handler = async (event) => {
     const ascendantSign   = data?.ascendant?.sign || data?.sign || "Unknown";
     const ascendantDegree = data?.ascendant?.degree ?? data?.degree ?? null;
 
-    return cors(200, {
-      ascendantSign,
-      ascendantDegree,
-      lat,
-      lon,
-      timezone,
-      debug: { geocoder: provider, matched, tzOffset }
-    });
+    return cors(200, { ascendantSign });
 
   } catch (err) {
     return cors(500, { error: err.message });
