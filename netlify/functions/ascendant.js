@@ -67,19 +67,12 @@ exports.handler = async (event) => {
     const { lat, lon, provider, matched } = geo;
 
     // 2) IANA timezone
-    const timezone = tzLookup(lat, lon);
+const timezone = tzLookup(lat, lon);
 
-    // 3) Test payload (swap to real API later)
-    return cors(200, {
-      ascendantSign: "Test Mode (add API keys later)",
-      ascendantDegree: 0,
-      lat,
-      lon,
-      timezone,
-      debug: { geocoder: provider, matched }
-    });
+// 3) Test payload (swap to real API later)
+return cors(200, {
+  ascendantSign: "Test Mode (add API keys later)",
+  ascendantDegree: 0,
+  lat, lon, timezone
+});
 
-  } catch (err) {
-    return cors(500, { error: err.message });
-  }
-};
