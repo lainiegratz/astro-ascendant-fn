@@ -101,28 +101,20 @@ const hasKeys = Boolean(user && key);
   return cors(200, { ascendantSign: "Test Mode (add API keys later)" });
 }
 
-    const apiRes = await fetch("https://json.astrologyapi.com/v2/ascendant", {
-      method: "POST",
-      headers: {
-        "Authorization": "Basic " + Buffer.from(`${user}:${key}`).toString("base64"),
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        date: birthDate,
-        time: birthTime,
-        latitude: lat,
-        longitude: lon,
-        timezone: tzOffset
-      })
-    });
+   // Temporary Free API Test — Aztro (no keys needed)
+const apiRes = await fetch("https://aztro.sameerkumar.website/?sign=leo&day=today", {
+  method: "POST"
+});
+
 
     if (!apiRes.ok) {
       const t = await apiRes.text();
       return cors(502, { error: `Astrology API error (${apiRes.status})`, details: t, debug: { tzOffset } });
     }
 
-    const data = await apiRes.json();
-    const ascendantSign   = data?.ascendant?.sign || data?.sign || "Unknown";
+   const data = await apiRes.json();
+const ascendantSign = "Leo (Demo Rising Sign)";
+
     const ascendantDegree = data?.ascendant?.degree ?? data?.degree ?? null;
 
     return cors(200, { ascendantSign });
