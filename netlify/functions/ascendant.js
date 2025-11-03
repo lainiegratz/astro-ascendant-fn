@@ -1,13 +1,15 @@
-// CommonJS syntax so it runs cleanly under Netlify's bundler
+// netlify/functions/ascendant.js
+// CommonJS + native fetch (Node 18/20+), works on Netlify
+
 const tzLookup = require("tz-lookup");
 
-// --- helper: CORS ---
+// ---- CORS helper ----
 function cors(statusCode, bodyObj) {
   return {
     statusCode,
     headers: {
       "Content-Type": "application/json",
-      // lock this to your Squarespace domain later
+      // When live, replace * with your Squarespace/custom domain
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Access-Control-Allow-Methods": "POST, OPTIONS"
@@ -16,14 +18,14 @@ function cors(statusCode, bodyObj) {
   };
 }
 
-// --- helper: robust geocoder (Open-Meteo -> maps.co fallback) ---
+// ---- Geocoder helper with fallback (Open-Meteo -> maps.co) ----
 async function geocodePlace(placeText) {
   const candidates = Array.from(new Set([
-    placeText.trim(),
-    placeText.replace(/\s*,\s*/g, ", ").trim(), // normalize commas
-    placeText.replace(/\bUSA\b/g, "US"),        // USA -> US
-    placeText.replace(/\bVA\b/g, "Virginia"),   // VA -> Virginia
-  ]));
+    String(placeText || "").trim(),
+    String(placeText || "").replace(/\s*,\s*/g, ", ").trim(), // normalize commas
+    String(placeText || "").replace(/\bUSA\b/g, "US"),
+    String(placeText || "").replace(/\bVA\b/g, "Virginia")
+  ])).filter(Boolean);
 
   // Try Open-Meteo first
   for (const q of candidates) {
@@ -51,28 +53,91 @@ async function geocodePlace(placeText) {
   return null;
 }
 
+// ---- Compute numeric UTC offset (hours) for an IANA zone + local datetime ----
+function offsetHoursFor(ianaZone, birthDate, birthTime) {
+  // birthDate: YYYY-MM-DD, birthTime: HH:mm (24h)
+  // Heuristic using Intl timeZone conversion
+  const wall = new Date(`${birthDate}T${birthTime}:00`);
+  const zoneEpoch = Date.parse(new Date(wall).toLocaleString("en-US", { timeZone: ianaZone }));
+  const utcEpoch  = Date.parse(new Date(wall).toUTCString());
+  return (zoneEpoch - utcEpoch) / 3600000;
+}
+
 exports.handler = async (event) => {
+  // Preflight
   if (event.httpMethod === "OPTIONS") return cors(200, { ok: true });
   if (event.httpMethod !== "POST") return cors(405, { error: "Method not allowed" });
 
   try {
     const { month, day, year, hour, minute, placeText } = JSON.parse(event.body || "{}");
+
+    // Basic validation
     if (!month || !day || !year || !hour || !minute || !placeText) {
       return cors(400, { error: "Missing required fields." });
     }
 
-    // 1) Geocode city (with fallback)
+    // 1) Geocode
     const geo = await geocodePlace(placeText);
-    if (!geo) return cors(400, { error: "Could not find that place. Try City, State, Country." });
+    if (!geo) {
+      return cors(400, { error: "Could not find that place. Try City, State, Country." });
+    }
     const { lat, lon, provider, matched } = geo;
 
-    // 2) IANA timezone
-const timezone = tzLookup(lat, lon);
+    // 2) Timezone
+    const timezone = tzLookup(lat, lon);
 
-// 3) Test payload (swap to real API later)
-return cors(200, {
-  ascendantSign: "Test Mode (add API keys later)",
-  ascendantDegree: 0,
-  lat, lon, timezone
-});
+    // Build birth date/time strings
+    const birthDate = `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+    const birthTime = `${String(hour).padStart(2,"0")}:${String(minute).padStart(2,"0")}`;
+    const tzOffset  = offsetHoursFor(timezone, birthDate, birthTime);
 
+    // 3) Astrology API call (if keys present). Otherwise return Test Mode.
+    const user = process.env.ASTROLOGY_API_USER_ID;
+    const key  = process.env.ASTROLOGY_API_KEY;
+
+    if (!user || !key) {
+      return cors(200, {
+        ascendantSign: "Test Mode (add API keys later)",
+        ascendantDegree: 0,
+        lat, lon, timezone,
+        debug: { geocoder: provider, matched, tzOffset }
+      });
+    }
+
+    const apiRes = await fetch("https://json.astrologyapi.com/v2/ascendant", {
+      method: "POST",
+      headers: {
+        "Authorization": "Basic " + Buffer.from(`${user}:${key}`).toString("base64"),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        date: birthDate,
+        time: birthTime,
+        latitude: lat,
+        longitude: lon,
+        timezone: tzOffset
+      })
+    });
+
+    if (!apiRes.ok) {
+      const t = await apiRes.text();
+      return cors(502, { error: `Astrology API error (${apiRes.status})`, details: t, debug: { tzOffset } });
+    }
+
+    const data = await apiRes.json();
+    const ascendantSign   = data?.ascendant?.sign || data?.sign || "Unknown";
+    const ascendantDegree = data?.ascendant?.degree ?? data?.degree ?? null;
+
+    return cors(200, {
+      ascendantSign,
+      ascendantDegree,
+      lat,
+      lon,
+      timezone,
+      debug: { geocoder: provider, matched, tzOffset }
+    });
+
+  } catch (err) {
+    return cors(500, { error: err.message });
+  }
+};
