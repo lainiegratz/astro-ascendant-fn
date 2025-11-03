@@ -1,4 +1,4 @@
-import fetch from "node-fetch";
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 import tzLookup from "tz-lookup";
 
 /** CORS helper */
