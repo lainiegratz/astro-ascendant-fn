@@ -1,17 +1,12 @@
 {
   "name": "astro-ascendant-fn",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "tz-lookup": "^6.1.25"
-  }
+  "private": true,
+  "description": "Netlify function for Ascendant lookup",
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+ "dependencies": {
+  "tz-lookup": "6.1.25"
 }
-"engines": { "node": ">=18" }
+}
+
